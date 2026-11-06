@@ -62,9 +62,26 @@ components:
         address:
           type: string
           minLength: 1
+        error:
+          $ref: "#/components/schemas/chaosError"
       required:
         - amount
         - address
+    chaosError:
+      description: Chaos testing. The service that owns the named method fails it with an internal error.
+      type: object
+      properties:
+        method-error:
+          type: string
+          enum:
+            - CreateOrder
+            - ChargePayment
+            - ScheduleDelivery
+            - CancelOrder
+            - RefundPayment
+            - CancelDelivery
+      required:
+        - method-error
     createOrderResponseData:
       type: object
       properties:

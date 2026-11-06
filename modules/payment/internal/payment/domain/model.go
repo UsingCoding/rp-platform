@@ -19,4 +19,5 @@ type Payment struct {
 
 type PaymentRepository interface {
 	Store(Payment) error
+	Cancel(orderID uuid.UUID) error
 }

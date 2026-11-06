@@ -22,7 +22,7 @@ sequenceDiagram
   participant P as payment-service :8081
   participant D as delivery-service :8081
 
-  U->>GW: POST /ordercreator/api/public/v1/orders {amount, address}
+  U->>GW: POST /ordercreator/api/public/v1/orders {amount, address, error?}
   GW->>OCS: POST /api/public/v1/orders
   OCS->>TS: ExecuteWorkflow(CreateOrderWorkflow, ID=order-<uuid>)
   OCS-->>U: 202 {orderID, workflowID}
@@ -30,24 +30,71 @@ sequenceDiagram
   OCW->>O: gRPC OrderService.CreateOrder
   O-->>OCW: OK
   TS->>OCW: Activity task ChargePayment
-  OCW->>P: gRPC PaymentService.Charge
+  OCW->>P: gRPC PaymentService.ChargePayment
   P-->>OCW: OK
   TS->>OCW: Activity task ScheduleDelivery
-  OCW->>D: gRPC DeliveryService.Schedule
+  OCW->>D: gRPC DeliveryService.ScheduleDelivery
   D-->>OCW: OK
 ```
 
-Каждая активность ограничена 10 секундами и повторяется до 5 раз с начальным
-интервалом 1 секунда. Ответ `InvalidArgument` останавливает повторы. Сервисы
-сохраняют запись идемпотентно по `order_id`, поэтому повтор активности не создаёт
-дубликат.
+Каждая активность ограничена 10 секундами и выполняется не более 5 раз
+(интервал 1 с, затем 2, 4, 8 с). Ответ `InvalidArgument` останавливает повторы
+сразу. Сервисы сохраняют запись идемпотентно по `order_id`, поэтому повтор
+активности не создаёт дубликат.
 
 ```sh
-curl -i -X POST localhost/ordercreator/api/public/v1/orders \
+curl --noproxy '*' -i -X POST localhost/ordercreator/api/public/v1/orders \
   -H 'Content-Type: application/json' -d '{"amount":100,"address":"Kazan"}'
 ```
 
 Ход выполнения виден в Temporal UI: `http://localhost:8080`.
+
+### Компенсации
+
+Если шаг не удался после всех попыток, workflow вызывает компенсации для этого
+шага и всех предыдущих в обратном порядке, после чего завершается со статусом
+Failed. Компенсация переводит запись в `status = 'cancelled'`; она идемпотентна и
+ничего не делает, если запись не создавалась. Ошибка одной компенсации не
+останавливает остальные.
+
+| Сервис | Метод | Компенсация | Статус после шага |
+| --- | --- | --- | --- |
+| order | `CreateOrder` | `CancelOrder` | `created` |
+| payment | `ChargePayment` | `RefundPayment` | `charged` |
+| delivery | `ScheduleDelivery` | `CancelDelivery` | `scheduled` |
+
+```mermaid
+sequenceDiagram
+  participant OCW as ordercreator-worker
+  participant O as order
+  participant P as payment
+  participant D as delivery
+  OCW->>O: CreateOrder → OK
+  OCW->>P: ChargePayment → OK
+  loop 5 попыток
+    OCW->>D: ScheduleDelivery → Internal
+  end
+  OCW->>D: CancelDelivery
+  OCW->>P: RefundPayment
+  OCW->>O: CancelOrder
+```
+
+### Chaos-тестирование
+
+Необязательное поле `error.method-error` содержит имя одного из шести методов
+из таблицы выше. Значение передаётся в workflow, активности и все gRPC-запросы
+(`ChaosError`). Сервис, которому принадлежит метод, отвечает на его вызов
+ошибкой `Internal`, не меняя данные, поэтому Temporal повторяет вызов.
+Неизвестное имя метода отклоняется с `400`.
+
+```sh
+curl --noproxy '*' -i -X POST localhost/ordercreator/api/public/v1/orders \
+  -H 'Content-Type: application/json' \
+  -d '{"amount":100,"address":"Kazan","error":{"method-error":"ScheduleDelivery"}}'
+```
+
+Примерно через 15 секунд workflow завершится со статусом Failed; записи в `orders`
+и `payments` получат статус `cancelled`, записи в `deliveries` не будет.
 
 ## Сценарий
 

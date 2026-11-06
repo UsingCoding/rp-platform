@@ -54,3 +54,9 @@ func (s *Service) CreateOrder(ctx context.Context, order domain.Order) error {
 		return provider.Order(ctx).Store(order)
 	})
 }
+
+func (s *Service) CancelOrder(ctx context.Context, orderID uuid.UUID) error {
+	return s.unit.ExecuteWithRepositoryProvider(ctx, func(provider *mysql.RepositoryProvider) error {
+		return provider.Order(ctx).Cancel(orderID)
+	})
+}

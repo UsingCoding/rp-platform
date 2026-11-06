@@ -35,22 +35,49 @@ func (a *Activities) CreateOrder(ctx context.Context, in OrderInput) error {
 		OrderID: in.OrderID,
 		Amount:  in.Amount,
 		Address: in.Address,
+		Error:   &orderinternalapi.ChaosError{MethodError: in.MethodError},
+	})
+	return activityError(err)
+}
+
+func (a *Activities) CancelOrder(ctx context.Context, in OrderInput) error {
+	_, err := a.orders.CancelOrder(ctx, &orderinternalapi.CancelOrderRequest{
+		OrderID: in.OrderID,
+		Error:   &orderinternalapi.ChaosError{MethodError: in.MethodError},
 	})
 	return activityError(err)
 }
 
 func (a *Activities) ChargePayment(ctx context.Context, in OrderInput) error {
-	_, err := a.payments.Charge(ctx, &paymentinternalapi.ChargeRequest{
+	_, err := a.payments.ChargePayment(ctx, &paymentinternalapi.ChargePaymentRequest{
 		OrderID: in.OrderID,
 		Amount:  in.Amount,
+		Error:   &paymentinternalapi.ChaosError{MethodError: in.MethodError},
+	})
+	return activityError(err)
+}
+
+func (a *Activities) RefundPayment(ctx context.Context, in OrderInput) error {
+	_, err := a.payments.RefundPayment(ctx, &paymentinternalapi.RefundPaymentRequest{
+		OrderID: in.OrderID,
+		Error:   &paymentinternalapi.ChaosError{MethodError: in.MethodError},
 	})
 	return activityError(err)
 }
 
 func (a *Activities) ScheduleDelivery(ctx context.Context, in OrderInput) error {
-	_, err := a.deliveries.Schedule(ctx, &deliveryinternalapi.ScheduleRequest{
+	_, err := a.deliveries.ScheduleDelivery(ctx, &deliveryinternalapi.ScheduleDeliveryRequest{
 		OrderID: in.OrderID,
 		Address: in.Address,
+		Error:   &deliveryinternalapi.ChaosError{MethodError: in.MethodError},
+	})
+	return activityError(err)
+}
+
+func (a *Activities) CancelDelivery(ctx context.Context, in OrderInput) error {
+	_, err := a.deliveries.CancelDelivery(ctx, &deliveryinternalapi.CancelDeliveryRequest{
+		OrderID: in.OrderID,
+		Error:   &deliveryinternalapi.ChaosError{MethodError: in.MethodError},
 	})
 	return activityError(err)
 }

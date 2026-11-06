@@ -18,42 +18,59 @@ import (
 	paymentinternalapi "payment/api/server/internalapi"
 )
 
-type orderServer struct {
-	orderinternalapi.UnimplementedOrderServiceServer
-	requests []*orderinternalapi.CreateOrderRequest
-	err      error
+type request interface {
+	GetOrderID() string
 }
 
-func (s *orderServer) CreateOrder(_ context.Context, req *orderinternalapi.CreateOrderRequest) (*orderinternalapi.CreateOrderResponse, error) {
-	s.requests = append(s.requests, req)
-	return &orderinternalapi.CreateOrderResponse{}, s.err
-}
-
-type paymentServer struct {
-	paymentinternalapi.UnimplementedPaymentServiceServer
-	requests []*paymentinternalapi.ChargeRequest
-}
-
-func (s *paymentServer) Charge(_ context.Context, req *paymentinternalapi.ChargeRequest) (*paymentinternalapi.ChargeResponse, error) {
-	s.requests = append(s.requests, req)
-	return &paymentinternalapi.ChargeResponse{}, nil
-}
-
-type deliveryServer struct {
-	deliveryinternalapi.UnimplementedDeliveryServiceServer
-	requests []*deliveryinternalapi.ScheduleRequest
-}
-
-func (s *deliveryServer) Schedule(_ context.Context, req *deliveryinternalapi.ScheduleRequest) (*deliveryinternalapi.ScheduleResponse, error) {
-	s.requests = append(s.requests, req)
-	return &deliveryinternalapi.ScheduleResponse{}, nil
-}
-
+// fakeServices records requests sent to all three services and answers with err.
 type fakeServices struct {
-	orders     *orderServer
-	payments   *paymentServer
-	deliveries *deliveryServer
+	requests   map[string]request
+	err        error
 	activities *Activities
+}
+
+func (s *fakeServices) record(method string, req request) error {
+	s.requests[method] = req
+	return s.err
+}
+
+type fakeOrders struct {
+	orderinternalapi.UnimplementedOrderServiceServer
+	*fakeServices
+}
+
+func (s fakeOrders) CreateOrder(_ context.Context, req *orderinternalapi.CreateOrderRequest) (*orderinternalapi.CreateOrderResponse, error) {
+	return &orderinternalapi.CreateOrderResponse{}, s.record(createOrder, req)
+}
+
+func (s fakeOrders) CancelOrder(_ context.Context, req *orderinternalapi.CancelOrderRequest) (*orderinternalapi.CancelOrderResponse, error) {
+	return &orderinternalapi.CancelOrderResponse{}, s.record(cancelOrder, req)
+}
+
+type fakePayments struct {
+	paymentinternalapi.UnimplementedPaymentServiceServer
+	*fakeServices
+}
+
+func (s fakePayments) ChargePayment(_ context.Context, req *paymentinternalapi.ChargePaymentRequest) (*paymentinternalapi.ChargePaymentResponse, error) {
+	return &paymentinternalapi.ChargePaymentResponse{}, s.record(chargePayment, req)
+}
+
+func (s fakePayments) RefundPayment(_ context.Context, req *paymentinternalapi.RefundPaymentRequest) (*paymentinternalapi.RefundPaymentResponse, error) {
+	return &paymentinternalapi.RefundPaymentResponse{}, s.record(refundPayment, req)
+}
+
+type fakeDeliveries struct {
+	deliveryinternalapi.UnimplementedDeliveryServiceServer
+	*fakeServices
+}
+
+func (s fakeDeliveries) ScheduleDelivery(_ context.Context, req *deliveryinternalapi.ScheduleDeliveryRequest) (*deliveryinternalapi.ScheduleDeliveryResponse, error) {
+	return &deliveryinternalapi.ScheduleDeliveryResponse{}, s.record(scheduleDelivery, req)
+}
+
+func (s fakeDeliveries) CancelDelivery(_ context.Context, req *deliveryinternalapi.CancelDeliveryRequest) (*deliveryinternalapi.CancelDeliveryResponse, error) {
+	return &deliveryinternalapi.CancelDeliveryResponse{}, s.record(cancelDelivery, req)
 }
 
 func startFakeServices(t *testing.T) *fakeServices {
@@ -61,13 +78,11 @@ func startFakeServices(t *testing.T) *fakeServices {
 	listener := bufconn.Listen(1 << 20)
 	server := grpc.NewServer()
 	services := &fakeServices{
-		orders:     &orderServer{},
-		payments:   &paymentServer{},
-		deliveries: &deliveryServer{},
+		requests: map[string]request{},
 	}
-	orderinternalapi.RegisterOrderServiceServer(server, services.orders)
-	paymentinternalapi.RegisterPaymentServiceServer(server, services.payments)
-	deliveryinternalapi.RegisterDeliveryServiceServer(server, services.deliveries)
+	orderinternalapi.RegisterOrderServiceServer(server, fakeOrders{fakeServices: services})
+	paymentinternalapi.RegisterPaymentServiceServer(server, fakePayments{fakeServices: services})
+	deliveryinternalapi.RegisterDeliveryServiceServer(server, fakeDeliveries{fakeServices: services})
 	go func() {
 		_ = server.Serve(listener)
 	}()
@@ -94,32 +109,45 @@ func startFakeServices(t *testing.T) *fakeServices {
 
 func TestActivitiesCallServices(t *testing.T) {
 	services := startFakeServices(t)
+	a := services.activities
+	in := input
+	in.MethodError = scheduleDelivery
 
-	require.NoError(t, services.activities.CreateOrder(t.Context(), input))
-	require.NoError(t, services.activities.ChargePayment(t.Context(), input))
-	require.NoError(t, services.activities.ScheduleDelivery(t.Context(), input))
+	for _, activity := range []func(context.Context, OrderInput) error{
+		a.CreateOrder, a.CancelOrder, a.ChargePayment, a.RefundPayment, a.ScheduleDelivery, a.CancelDelivery,
+	} {
+		require.NoError(t, activity(t.Context(), in))
+	}
 
-	require.Len(t, services.orders.requests, 1)
-	require.Equal(t, input.OrderID, services.orders.requests[0].OrderID)
-	require.Equal(t, input.Amount, services.orders.requests[0].Amount)
-	require.Equal(t, input.Address, services.orders.requests[0].Address)
-	require.Len(t, services.payments.requests, 1)
-	require.Equal(t, input.Amount, services.payments.requests[0].Amount)
-	require.Len(t, services.deliveries.requests, 1)
-	require.Equal(t, input.Address, services.deliveries.requests[0].Address)
+	order := services.requests[createOrder].(*orderinternalapi.CreateOrderRequest)
+	require.Equal(t, in.Amount, order.Amount)
+	require.Equal(t, in.Address, order.Address)
+	require.Equal(t, in.Amount, services.requests[chargePayment].(*paymentinternalapi.ChargePaymentRequest).Amount)
+	require.Equal(t, in.Address, services.requests[scheduleDelivery].(*deliveryinternalapi.ScheduleDeliveryRequest).Address)
+
+	require.Len(t, services.requests, 6)
+	for method, req := range services.requests {
+		require.Equal(t, in.OrderID, req.GetOrderID(), method)
+	}
+	require.Equal(t, in.MethodError, order.GetError().GetMethodError())
+	require.Equal(t, in.MethodError, services.requests[cancelOrder].(*orderinternalapi.CancelOrderRequest).GetError().GetMethodError())
+	require.Equal(t, in.MethodError, services.requests[chargePayment].(*paymentinternalapi.ChargePaymentRequest).GetError().GetMethodError())
+	require.Equal(t, in.MethodError, services.requests[scheduleDelivery].(*deliveryinternalapi.ScheduleDeliveryRequest).GetError().GetMethodError())
+	require.Equal(t, in.MethodError, services.requests[refundPayment].(*paymentinternalapi.RefundPaymentRequest).GetError().GetMethodError())
+	require.Equal(t, in.MethodError, services.requests[cancelDelivery].(*deliveryinternalapi.CancelDeliveryRequest).GetError().GetMethodError())
 }
 
 func TestActivitiesErrors(t *testing.T) {
 	services := startFakeServices(t)
 
-	services.orders.err = status.Error(codes.InvalidArgument, "invalid order request")
+	services.err = status.Error(codes.InvalidArgument, "invalid order request")
 	err := services.activities.CreateOrder(t.Context(), input)
 	var applicationErr *temporal.ApplicationError
 	require.ErrorAs(t, err, &applicationErr)
 	require.True(t, applicationErr.NonRetryable())
 
-	services.orders.err = status.Error(codes.Unavailable, "unavailable")
+	services.err = status.Error(codes.Internal, "chaos: CreateOrder failed")
 	err = services.activities.CreateOrder(t.Context(), input)
-	require.Equal(t, codes.Unavailable, status.Code(err))
+	require.Equal(t, codes.Internal, status.Code(err))
 	require.NotErrorAs(t, err, &applicationErr)
 }

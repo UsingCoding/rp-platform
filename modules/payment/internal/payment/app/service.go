@@ -49,8 +49,14 @@ func (s *Service) Echo(ctx context.Context, body string) (uuid.UUID, error) {
 	return id, nil
 }
 
-func (s *Service) Charge(ctx context.Context, payment domain.Payment) error {
+func (s *Service) ChargePayment(ctx context.Context, payment domain.Payment) error {
 	return s.unit.ExecuteWithRepositoryProvider(ctx, func(provider *mysql.RepositoryProvider) error {
 		return provider.Payment(ctx).Store(payment)
+	})
+}
+
+func (s *Service) RefundPayment(ctx context.Context, orderID uuid.UUID) error {
+	return s.unit.ExecuteWithRepositoryProvider(ctx, func(provider *mysql.RepositoryProvider) error {
+		return provider.Payment(ctx).Cancel(orderID)
 	})
 }

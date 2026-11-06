@@ -28,9 +28,10 @@ func (s *Starter) StartCreateOrder(ctx context.Context, order domain.Order) (str
 		TaskQueue:             s.taskQueue,
 		WorkflowIDReusePolicy: enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
 	}, CreateOrderWorkflow, OrderInput{
-		OrderID: order.ID.String(),
-		Amount:  order.Amount,
-		Address: order.Address,
+		OrderID:     order.ID.String(),
+		Amount:      order.Amount,
+		Address:     order.Address,
+		MethodError: order.MethodError,
 	})
 	if err != nil {
 		return "", err

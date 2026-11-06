@@ -5,7 +5,8 @@ option go_package = "/.;deliveryinternalapi";
 
 service DeliveryService {
   rpc Echo(EchoRequest) returns (EchoResponse);
-  rpc Schedule(ScheduleRequest) returns (ScheduleResponse);
+  rpc ScheduleDelivery(ScheduleDeliveryRequest) returns (ScheduleDeliveryResponse);
+  rpc CancelDelivery(CancelDeliveryRequest) returns (CancelDeliveryResponse);
 }
 
 message EchoRequest {
@@ -16,10 +17,24 @@ message EchoResponse {
   string OperationID = 1;
 }
 
-message ScheduleRequest {
+message ScheduleDeliveryRequest {
   string OrderID = 1;
   string Address = 2;
+  ChaosError Error = 3;
 }
 
-message ScheduleResponse {
+message ScheduleDeliveryResponse {
+}
+
+message CancelDeliveryRequest {
+  string OrderID = 1;
+  ChaosError Error = 2;
+}
+
+message CancelDeliveryResponse {
+}
+
+// ChaosError makes the service fail the method named in MethodError.
+message ChaosError {
+  string MethodError = 1;
 }

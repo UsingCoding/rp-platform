@@ -16,4 +16,6 @@ type Order struct {
 	ID      uuid.UUID
 	Amount  int64
 	Address string
+	// MethodError names the service method that must fail; used for chaos testing.
+	MethodError string
 }

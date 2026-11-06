@@ -5,7 +5,8 @@ option go_package = "/.;paymentinternalapi";
 
 service PaymentService {
   rpc Echo(EchoRequest) returns (EchoResponse);
-  rpc Charge(ChargeRequest) returns (ChargeResponse);
+  rpc ChargePayment(ChargePaymentRequest) returns (ChargePaymentResponse);
+  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
 }
 
 message EchoRequest {
@@ -16,10 +17,24 @@ message EchoResponse {
   string OperationID = 1;
 }
 
-message ChargeRequest {
+message ChargePaymentRequest {
   string OrderID = 1;
   int64 Amount = 2;
+  ChaosError Error = 3;
 }
 
-message ChargeResponse {
+message ChargePaymentResponse {
+}
+
+message RefundPaymentRequest {
+  string OrderID = 1;
+  ChaosError Error = 2;
+}
+
+message RefundPaymentResponse {
+}
+
+// ChaosError makes the service fail the method named in MethodError.
+message ChaosError {
+  string MethodError = 1;
 }

@@ -19,4 +19,5 @@ type Delivery struct {
 
 type DeliveryRepository interface {
 	Store(Delivery) error
+	Cancel(orderID uuid.UUID) error
 }

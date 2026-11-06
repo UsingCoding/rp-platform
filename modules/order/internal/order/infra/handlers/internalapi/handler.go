@@ -40,6 +40,11 @@ func (h handler) Echo(ctx context.Context, req *orderinternalapi.EchoRequest) (*
 }
 
 func (h handler) CreateOrder(ctx context.Context, req *orderinternalapi.CreateOrderRequest) (*orderinternalapi.CreateOrderResponse, error) {
+	err := h.chaosError(ctx, "CreateOrder", req.GetError())
+	if err != nil {
+		return nil, err
+	}
+
 	orderID, err := uuid.Parse(req.OrderID)
 	if err != nil || req.Amount <= 0 || req.Address == "" {
 		return nil, status.Error(codes.InvalidArgument, "invalid order request")
@@ -55,4 +60,32 @@ func (h handler) CreateOrder(ctx context.Context, req *orderinternalapi.CreateOr
 		return nil, status.Error(codes.Internal, "order failed")
 	}
 	return &orderinternalapi.CreateOrderResponse{}, nil
+}
+
+func (h handler) CancelOrder(ctx context.Context, req *orderinternalapi.CancelOrderRequest) (*orderinternalapi.CancelOrderResponse, error) {
+	err := h.chaosError(ctx, "CancelOrder", req.GetError())
+	if err != nil {
+		return nil, err
+	}
+
+	orderID, err := uuid.Parse(req.OrderID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid order cancel request")
+	}
+
+	err = h.svc.CancelOrder(ctx, orderID)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "order cancel failed", logging.Error(err))
+		return nil, status.Error(codes.Internal, "order cancel failed")
+	}
+	return &orderinternalapi.CancelOrderResponse{}, nil
+}
+
+// chaosError fails the method named in the request, so callers can exercise retries and compensations.
+func (h handler) chaosError(ctx context.Context, method string, chaos *orderinternalapi.ChaosError) error {
+	if chaos.GetMethodError() != method {
+		return nil
+	}
+	h.logger.WarnContext(ctx, "chaos error injected", "method", method)
+	return status.Errorf(codes.Internal, "chaos: %s failed", method)
 }

@@ -39,13 +39,18 @@ func (h handler) Echo(ctx context.Context, req *paymentinternalapi.EchoRequest) 
 	}, nil
 }
 
-func (h handler) Charge(ctx context.Context, req *paymentinternalapi.ChargeRequest) (*paymentinternalapi.ChargeResponse, error) {
+func (h handler) ChargePayment(ctx context.Context, req *paymentinternalapi.ChargePaymentRequest) (*paymentinternalapi.ChargePaymentResponse, error) {
+	err := h.chaosError(ctx, "ChargePayment", req.GetError())
+	if err != nil {
+		return nil, err
+	}
+
 	orderID, err := uuid.Parse(req.OrderID)
 	if err != nil || req.Amount <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid payment request")
 	}
 
-	err = h.svc.Charge(ctx, domain.Payment{
+	err = h.svc.ChargePayment(ctx, domain.Payment{
 		OrderID: orderID,
 		Amount:  req.Amount,
 	})
@@ -53,5 +58,33 @@ func (h handler) Charge(ctx context.Context, req *paymentinternalapi.ChargeReque
 		h.logger.ErrorContext(ctx, "payment failed", logging.Error(err))
 		return nil, status.Error(codes.Internal, "payment failed")
 	}
-	return &paymentinternalapi.ChargeResponse{}, nil
+	return &paymentinternalapi.ChargePaymentResponse{}, nil
+}
+
+func (h handler) RefundPayment(ctx context.Context, req *paymentinternalapi.RefundPaymentRequest) (*paymentinternalapi.RefundPaymentResponse, error) {
+	err := h.chaosError(ctx, "RefundPayment", req.GetError())
+	if err != nil {
+		return nil, err
+	}
+
+	orderID, err := uuid.Parse(req.OrderID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid payment cancel request")
+	}
+
+	err = h.svc.RefundPayment(ctx, orderID)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "payment cancel failed", logging.Error(err))
+		return nil, status.Error(codes.Internal, "payment cancel failed")
+	}
+	return &paymentinternalapi.RefundPaymentResponse{}, nil
+}
+
+// chaosError fails the method named in the request, so callers can exercise retries and compensations.
+func (h handler) chaosError(ctx context.Context, method string, chaos *paymentinternalapi.ChaosError) error {
+	if chaos.GetMethodError() != method {
+		return nil
+	}
+	h.logger.WarnContext(ctx, "chaos error injected", "method", method)
+	return status.Errorf(codes.Internal, "chaos: %s failed", method)
 }

@@ -29,7 +29,11 @@ func (h handler) Echo(ctx context.Context, req publicapi.EchoRequestObject) (pub
 }
 
 func (h handler) CreateOrder(ctx context.Context, req publicapi.CreateOrderRequestObject) (publicapi.CreateOrderResponseObject, error) {
-	order, workflowID, err := h.svc.CreateOrder(ctx, req.Body.Amount, req.Body.Address)
+	var methodError string
+	if req.Body.Error != nil {
+		methodError = string(req.Body.Error.MethodError)
+	}
+	order, workflowID, err := h.svc.CreateOrder(ctx, req.Body.Amount, req.Body.Address, methodError)
 	if err != nil {
 		return nil, err
 	}

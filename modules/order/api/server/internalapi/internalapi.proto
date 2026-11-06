@@ -6,6 +6,7 @@ option go_package = "/.;orderinternalapi";
 service OrderService {
   rpc Echo(EchoRequest) returns (EchoResponse);
   rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
 }
 
 message EchoRequest {
@@ -20,7 +21,21 @@ message CreateOrderRequest {
   string OrderID = 1;
   int64 Amount = 2;
   string Address = 3;
+  ChaosError Error = 4;
 }
 
 message CreateOrderResponse {
+}
+
+message CancelOrderRequest {
+  string OrderID = 1;
+  ChaosError Error = 2;
+}
+
+message CancelOrderResponse {
+}
+
+// ChaosError makes the service fail the method named in MethodError.
+message ChaosError {
+  string MethodError = 1;
 }

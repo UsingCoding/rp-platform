@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/distributed-programming-2026/go-sdk/pkg/mysql"
 
@@ -26,5 +27,13 @@ func (r *orderRepository) Store(o domain.Order) error {
 INSERT INTO orders (order_id, amount, address) VALUES (?, ?, ?)
 ON DUPLICATE KEY UPDATE order_id = order_id
 `, o.OrderID, o.Amount, o.Address)
+	return err
+}
+
+// Cancel marks the row cancelled. It does nothing if the row was never stored.
+func (r *orderRepository) Cancel(orderID uuid.UUID) error {
+	_, err := r.client.ExecContext(r.ctx, "orders.cancel", `
+UPDATE orders SET status = 'cancelled' WHERE order_id = ?
+`, orderID)
 	return err
 }

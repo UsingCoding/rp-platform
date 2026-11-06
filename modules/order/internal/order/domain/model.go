@@ -20,4 +20,5 @@ type Order struct {
 
 type OrderRepository interface {
 	Store(Order) error
+	Cancel(orderID uuid.UUID) error
 }

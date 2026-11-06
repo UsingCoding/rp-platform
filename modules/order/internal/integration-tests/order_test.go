@@ -15,6 +15,8 @@ import (
 	internalapi "order/api/server/internalapi"
 )
 
+const testAddress = "Kazan"
+
 func TestCreateOrder(t *testing.T) {
 	connection, err := grpc.NewClient(testEnv.conf.GRPC.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
@@ -28,7 +30,7 @@ func TestCreateOrder(t *testing.T) {
 	request := &internalapi.CreateOrderRequest{
 		OrderID: orderID.String(),
 		Amount:  100,
-		Address: "Kazan",
+		Address: testAddress,
 	}
 	// The second call checks that retries are idempotent.
 	for range 2 {
@@ -44,12 +46,59 @@ func TestCreateOrder(t *testing.T) {
 		"SELECT amount, address FROM orders WHERE order_id = ?", orderID)
 	require.NoError(t, err)
 	require.Equal(t, int64(100), stored.Amount)
-	require.Equal(t, "Kazan", stored.Address)
+	require.Equal(t, testAddress, stored.Address)
 
 	_, err = client.CreateOrder(ctx, &internalapi.CreateOrderRequest{
 		OrderID: "not-a-uuid",
 		Amount:  100,
-		Address: "Kazan",
+		Address: testAddress,
 	})
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+func TestCreateOrderChaosAndCompensation(t *testing.T) {
+	connection, err := grpc.NewClient(testEnv.conf.GRPC.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer connection.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	client := internalapi.NewOrderServiceClient(connection)
+	orderID := uuid.New()
+	newRequest := func(methodError string) *internalapi.CreateOrderRequest {
+		return &internalapi.CreateOrderRequest{
+			OrderID: orderID.String(),
+			Amount:  100,
+			Address: testAddress,
+			Error:   &internalapi.ChaosError{MethodError: methodError},
+		}
+	}
+	db := testEnv.connector.TransactionalClient()
+
+	_, err = client.CreateOrder(ctx, newRequest("CreateOrder"), grpc.WaitForReady(true))
+	require.Equal(t, codes.Internal, status.Code(err))
+	var count int
+	err = db.GetContext(t.Context(), "test.orders.count", &count, "SELECT COUNT(*) FROM orders WHERE order_id = ?", orderID)
+	require.NoError(t, err)
+	require.Zero(t, count)
+
+	// A chaos error aimed at another method does not affect this one.
+	_, err = client.CreateOrder(ctx, newRequest("CancelOrder"))
+	require.NoError(t, err)
+
+	_, err = client.CancelOrder(ctx, &internalapi.CancelOrderRequest{
+		OrderID: orderID.String(),
+		Error:   &internalapi.ChaosError{MethodError: "CancelOrder"},
+	})
+	require.Equal(t, codes.Internal, status.Code(err))
+
+	for range 2 {
+		_, err = client.CancelOrder(ctx, &internalapi.CancelOrderRequest{OrderID: orderID.String()})
+		require.NoError(t, err)
+	}
+	var orderStatus string
+	err = db.GetContext(t.Context(), "test.orders.status", &orderStatus, "SELECT status FROM orders WHERE order_id = ?", orderID)
+	require.NoError(t, err)
+	require.Equal(t, "cancelled", orderStatus)
 }

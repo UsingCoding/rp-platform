@@ -1,0 +1,14 @@
+kind: gateway/service/v1
+name: delivery
+weight: 100
+routes:
+  - pattern: '^/delivery/api/.*$'
+    rewrite:
+      old: '^/delivery/(.*)$'
+      new: '/$1'
+    target: delivery-service:8082
+    interceptors:
+      - id: delivery-interceptor
+        processingMode:
+          requestHeaders: true
+          responseHeaders: true

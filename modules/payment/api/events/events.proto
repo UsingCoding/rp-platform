@@ -1,0 +1,9 @@
+syntax = "proto3";
+package paymentEvents;
+
+option go_package = "/.;paymentevents";
+
+message Echo {
+  string ID = 1;
+  string Body = 2;
+}

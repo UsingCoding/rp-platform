@@ -1,0 +1,16 @@
+syntax = "proto3";
+package deliveryInternalAPI;
+
+option go_package = "/.;deliveryinternalapi";
+
+service DeliveryService {
+  rpc Echo(EchoRequest) returns (EchoResponse);
+}
+
+message EchoRequest {
+  string Body = 1;
+}
+
+message EchoResponse {
+  string OperationID = 1;
+}

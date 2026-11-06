@@ -1,0 +1,9 @@
+syntax = "proto3";
+package orderEvents;
+
+option go_package = "/.;orderevents";
+
+message Echo {
+  string ID = 1;
+  string Body = 2;
+}

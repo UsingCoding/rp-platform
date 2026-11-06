@@ -1,0 +1,14 @@
+kind: gateway/service/v1
+name: order
+weight: 100
+routes:
+  - pattern: '^/order/api/.*$'
+    rewrite:
+      old: '^/order/(.*)$'
+      new: '/$1'
+    target: order-service:8082
+    interceptors:
+      - id: order-interceptor
+        processingMode:
+          requestHeaders: true
+          responseHeaders: true

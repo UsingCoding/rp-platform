@@ -1,0 +1,14 @@
+kind: gateway/service/v1
+name: payment
+weight: 100
+routes:
+  - pattern: '^/payment/api/.*$'
+    rewrite:
+      old: '^/payment/(.*)$'
+      new: '/$1'
+    target: payment-service:8082
+    interceptors:
+      - id: payment-interceptor
+        processingMode:
+          requestHeaders: true
+          responseHeaders: true

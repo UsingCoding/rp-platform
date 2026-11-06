@@ -1,0 +1,33 @@
+services:
+  order-service:
+    image: distributed-programming-order:local
+    build:
+      context: ./modules/order
+      dockerfile: Dockerfile
+    environment:
+      ORDER_MYSQL_ADDRESS: mysql:3306
+      ORDER_AMQP_URL: amqp://local:local@rabbitmq:5672/
+    ports:
+      - "${ORDER_GRPC_PORT:-8081}:8081"
+      - "${ORDER_HTTP_PORT:-8082}:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  order-message-handler:
+    image: distributed-programming-order:local
+    command: [message-handler]
+    environment:
+      ORDER_MYSQL_ADDRESS: mysql:3306
+      ORDER_AMQP_URL: amqp://local:local@rabbitmq:5672/
+    ports:
+      - "${ORDER_MESSAGE_HANDLER_PORT:-8083}:8082"
+    depends_on:
+      order-service:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy

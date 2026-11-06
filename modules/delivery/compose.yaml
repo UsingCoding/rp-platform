@@ -1,0 +1,33 @@
+services:
+  delivery-service:
+    image: distributed-programming-delivery:local
+    build:
+      context: ./modules/delivery
+      dockerfile: Dockerfile
+    environment:
+      DELIVERY_MYSQL_ADDRESS: mysql:3306
+      DELIVERY_AMQP_URL: amqp://local:local@rabbitmq:5672/
+    ports:
+      - "${DELIVERY_GRPC_PORT:-8081}:8081"
+      - "${DELIVERY_HTTP_PORT:-8082}:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  delivery-message-handler:
+    image: distributed-programming-delivery:local
+    command: [message-handler]
+    environment:
+      DELIVERY_MYSQL_ADDRESS: mysql:3306
+      DELIVERY_AMQP_URL: amqp://local:local@rabbitmq:5672/
+    ports:
+      - "${DELIVERY_MESSAGE_HANDLER_PORT:-8083}:8082"
+    depends_on:
+      delivery-service:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy

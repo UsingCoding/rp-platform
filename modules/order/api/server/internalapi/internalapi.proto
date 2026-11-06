@@ -1,0 +1,16 @@
+syntax = "proto3";
+package orderInternalAPI;
+
+option go_package = "/.;orderinternalapi";
+
+service OrderService {
+  rpc Echo(EchoRequest) returns (EchoResponse);
+}
+
+message EchoRequest {
+  string Body = 1;
+}
+
+message EchoResponse {
+  string OperationID = 1;
+}

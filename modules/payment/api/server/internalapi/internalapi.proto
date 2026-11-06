@@ -5,6 +5,7 @@ option go_package = "/.;paymentinternalapi";
 
 service PaymentService {
   rpc Echo(EchoRequest) returns (EchoResponse);
+  rpc Charge(ChargeRequest) returns (ChargeResponse);
 }
 
 message EchoRequest {
@@ -13,4 +14,12 @@ message EchoRequest {
 
 message EchoResponse {
   string OperationID = 1;
+}
+
+message ChargeRequest {
+  string OrderID = 1;
+  int64 Amount = 2;
+}
+
+message ChargeResponse {
 }

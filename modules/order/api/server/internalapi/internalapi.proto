@@ -5,6 +5,7 @@ option go_package = "/.;orderinternalapi";
 
 service OrderService {
   rpc Echo(EchoRequest) returns (EchoResponse);
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
 }
 
 message EchoRequest {
@@ -13,4 +14,13 @@ message EchoRequest {
 
 message EchoResponse {
   string OperationID = 1;
+}
+
+message CreateOrderRequest {
+  string OrderID = 1;
+  int64 Amount = 2;
+  string Address = 3;
+}
+
+message CreateOrderResponse {
 }

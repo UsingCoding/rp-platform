@@ -3,6 +3,7 @@ go 1.27.1
 use (
 	./modules/delivery
 	./modules/order
+	./modules/ordercreator
 	./modules/payment
 	lib
 )

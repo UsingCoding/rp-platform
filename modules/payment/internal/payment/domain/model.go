@@ -11,3 +11,12 @@ type EchoRepository interface {
 	NextID() (uuid.UUID, error)
 	Store(Echo) error
 }
+
+type Payment struct {
+	OrderID uuid.UUID
+	Amount  int64
+}
+
+type PaymentRepository interface {
+	Store(Payment) error
+}

@@ -1,0 +1,14 @@
+kind: gateway/service/v1
+name: ordercreator
+weight: 100
+routes:
+  - pattern: '^/ordercreator/api/.*$'
+    rewrite:
+      old: '^/ordercreator/(.*)$'
+      new: '/$1'
+    target: ordercreator-service:8082
+    interceptors:
+      - id: ordercreator-interceptor
+        processingMode:
+          requestHeaders: true
+          responseHeaders: true

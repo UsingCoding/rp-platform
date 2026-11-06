@@ -1,0 +1,77 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Ordercreator service public API
+  x-api-identifier: ordercreatorpublicapi
+paths:
+  /api/public/v1/echo:
+    post:
+      operationId: echo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/echoRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/echoResponseData"
+  /api/public/v1/orders:
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/createOrderRequest"
+      responses:
+        "202":
+          description: Order creation workflow started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/createOrderResponseData"
+components:
+  schemas:
+    echoRequest:
+      type: object
+      properties:
+        body:
+          type: string
+      required:
+        - body
+    echoResponseData:
+      type: object
+      properties:
+        operationID:
+          type: string
+      required:
+        - operationID
+    createOrderRequest:
+      type: object
+      properties:
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+        address:
+          type: string
+          minLength: 1
+      required:
+        - amount
+        - address
+    createOrderResponseData:
+      type: object
+      properties:
+        orderID:
+          type: string
+        workflowID:
+          type: string
+      required:
+        - orderID
+        - workflowID

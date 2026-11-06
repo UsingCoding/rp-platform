@@ -1,0 +1,56 @@
+services:
+  ordercreator-service:
+    image: distributed-programming-ordercreator:local
+    build:
+      context: ./modules/ordercreator
+      dockerfile: Dockerfile
+    environment:
+      ORDERCREATOR_MYSQL_ADDRESS: mysql:3306
+      ORDERCREATOR_AMQP_URL: amqp://local:local@rabbitmq:5672/
+      ORDERCREATOR_TEMPORAL_ADDRESS: temporal:7233
+    ports:
+      - "${ORDERCREATOR_GRPC_PORT:-8081}:8081"
+      - "${ORDERCREATOR_HTTP_PORT:-8082}:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      temporal-namespace:
+        condition: service_completed_successfully
+
+  ordercreator-message-handler:
+    image: distributed-programming-ordercreator:local
+    command: [message-handler]
+    environment:
+      ORDERCREATOR_MYSQL_ADDRESS: mysql:3306
+      ORDERCREATOR_AMQP_URL: amqp://local:local@rabbitmq:5672/
+    ports:
+      - "${ORDERCREATOR_MESSAGE_HANDLER_PORT:-8083}:8082"
+    depends_on:
+      ordercreator-service:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  ordercreator-worker:
+    image: distributed-programming-ordercreator:local
+    command: [worker]
+    environment:
+      ORDERCREATOR_TEMPORAL_ADDRESS: temporal:7233
+      ORDERCREATOR_SERVICES_ORDER_ADDRESS: order-service:8081
+      ORDERCREATOR_SERVICES_PAYMENT_ADDRESS: payment-service:8081
+      ORDERCREATOR_SERVICES_DELIVERY_ADDRESS: delivery-service:8081
+    depends_on:
+      ordercreator-service:
+        condition: service_started
+      temporal-namespace:
+        condition: service_completed_successfully
+      order-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      delivery-service:
+        condition: service_started

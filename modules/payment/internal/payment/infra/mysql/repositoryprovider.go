@@ -22,3 +22,7 @@ type RepositoryProvider struct {
 func (p *RepositoryProvider) Echo(ctx context.Context) domain.EchoRepository {
 	return repository.NewEchoRepository(ctx, p.client)
 }
+
+func (p *RepositoryProvider) Payment(ctx context.Context) domain.PaymentRepository {
+	return repository.NewPaymentRepository(ctx, p.client)
+}

@@ -11,3 +11,12 @@ type EchoRepository interface {
 	NextID() (uuid.UUID, error)
 	Store(Echo) error
 }
+
+type Delivery struct {
+	OrderID uuid.UUID
+	Address string
+}
+
+type DeliveryRepository interface {
+	Store(Delivery) error
+}

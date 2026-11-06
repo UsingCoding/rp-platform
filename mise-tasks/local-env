@@ -98,6 +98,7 @@ def main():
         if not args.infra_only:
             compose("up", "-d", "--build", "--wait")
             print(f"gateway: HTTP={env.get('LOCAL_GATEWAY_PORT', '80')}, health={env.get('LOCAL_GATEWAY_HEALTH_PORT', '15000')}")
+            print(f"temporal: gRPC={env.get('LOCAL_TEMPORAL_PORT', '7233')}, UI={env.get('LOCAL_TEMPORAL_UI_PORT', '8080')}")
             for path in modules:
                 prefix = path.parent.name.upper()
                 print(f"{path.parent.name}: gRPC={env[prefix + '_GRPC_PORT']}, HTTP={env[prefix + '_HTTP_PORT']}, consumer health={env[prefix + '_MESSAGE_HANDLER_PORT']}")

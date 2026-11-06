@@ -20,8 +20,15 @@ Linux-бинарники через модульные задачи mise. Зат
 сервисы. SQL подготовки запускается при каждом старте, чтобы новые модули работали
 и с уже существующим volume MySQL.
 
-Корневой `compose.yaml` содержит gateway, MySQL и RabbitMQ. Каждый модуль описывает
+Корневой `compose.yaml` содержит gateway, MySQL, RabbitMQ и Temporal. Каждый модуль описывает
 свои сервисы, очередь, настройки подключения и подготовку базы у себя.
+
+Temporal (`temporalio/server`) хранит данные в общем MySQL: базы `temporal` и
+`temporal_visibility`. Одноразовые контейнеры `temporal-schema` и `temporal-namespace`
+применяют миграции схемы и создают namespace `default` при каждом старте. Внутри
+Compose-сети сервер доступен по адресу `temporal:7233`, с хоста — `localhost:7233`,
+Web UI — `http://localhost:8080`. Динамическая конфигурация сервера лежит в
+`docker/temporal/dynamicconfig/`.
 
 Gateway использует образ `ghcr.io/distributed-programming-2026/gateway:v0.0.1`
 (Linux/amd64; на ARM Docker использует эмуляцию). Общая конфигурация gateway
@@ -69,8 +76,8 @@ mise run local-down
 на 8083. Остальные модули получают следующие свободные порты по порядку имён;
 `local-up` печатает назначенные порты. Назначения можно задать явно через
 `<MODULE>_GRPC_PORT`, `<MODULE>_HTTP_PORT`, `<MODULE>_MESSAGE_HANDLER_PORT`.
-Инфраструктурные порты переопределяются через `LOCAL_MYSQL_PORT`, `LOCAL_AMQP_PORT`
-и `LOCAL_AMQP_MANAGEMENT_PORT`.
+Инфраструктурные порты переопределяются через `LOCAL_MYSQL_PORT`, `LOCAL_AMQP_PORT`,
+`LOCAL_AMQP_MANAGEMENT_PORT`, `LOCAL_TEMPORAL_PORT` и `LOCAL_TEMPORAL_UI_PORT`.
 
 ```sh
 curl -X POST localhost:8082/api/public/v1/echo \

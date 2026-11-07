@@ -2,6 +2,7 @@ package orderflow
 
 import (
 	"errors"
+	"slices"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
@@ -60,8 +61,8 @@ func compensate(ctx workflow.Context, compensations []any, in OrderInput) error 
 	ctx, _ = workflow.NewDisconnectedContext(ctx)
 	logger := workflow.GetLogger(ctx)
 	var errs []error
-	for i := len(compensations) - 1; i >= 0; i-- {
-		err := workflow.ExecuteActivity(ctx, compensations[i], in).Get(ctx, nil)
+	for _, compensation := range slices.Backward(compensations) {
+		err := workflow.ExecuteActivity(ctx, compensation, in).Get(ctx, nil)
 		if err != nil {
 			logger.Error("compensation failed", "error", err)
 			errs = append(errs, err)

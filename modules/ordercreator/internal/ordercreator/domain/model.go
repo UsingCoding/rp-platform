@@ -16,6 +16,11 @@ type Order struct {
 	ID      uuid.UUID
 	Amount  int64
 	Address string
-	// MethodError names the service method that must fail; used for chaos testing.
+	Chaos   Chaos
+}
+
+// Chaos lists service methods that must fail or be delayed; used for chaos testing.
+type Chaos struct {
 	MethodError string
+	MethodSleep []string
 }

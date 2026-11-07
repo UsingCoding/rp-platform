@@ -34,7 +34,9 @@ message RefundPaymentRequest {
 message RefundPaymentResponse {
 }
 
-// ChaosError makes the service fail the method named in MethodError.
+// ChaosError makes the service fail the method named in MethodError
+// and delay the methods listed in MethodSleep.
 message ChaosError {
   string MethodError = 1;
+  repeated string MethodSleep = 2;
 }

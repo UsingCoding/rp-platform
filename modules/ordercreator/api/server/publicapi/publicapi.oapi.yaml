@@ -68,20 +68,26 @@ components:
         - amount
         - address
     chaosError:
-      description: Chaos testing. The service that owns the named method fails it with an internal error.
+      description: >
+        Chaos testing. The service that owns method-error fails it with an internal error;
+        each method in method-sleep is delayed by 15 seconds.
       type: object
       properties:
         method-error:
-          type: string
-          enum:
-            - CreateOrder
-            - ChargePayment
-            - ScheduleDelivery
-            - CancelOrder
-            - RefundPayment
-            - CancelDelivery
-      required:
-        - method-error
+          $ref: "#/components/schemas/chaosMethod"
+        method-sleep:
+          type: array
+          items:
+            $ref: "#/components/schemas/chaosMethod"
+    chaosMethod:
+      type: string
+      enum:
+        - CreateOrder
+        - ChargePayment
+        - ScheduleDelivery
+        - CancelOrder
+        - RefundPayment
+        - CancelDelivery
     createOrderResponseData:
       type: object
       properties:

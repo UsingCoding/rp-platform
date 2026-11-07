@@ -97,3 +97,36 @@ func TestScheduleDeliveryChaosAndCompensation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "cancelled", orderStatus)
 }
+
+func TestScheduleDeliveryChaosSleep(t *testing.T) {
+	connection, err := grpc.NewClient(testEnv.conf.GRPC.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer connection.Close()
+
+	client := internalapi.NewDeliveryServiceClient(connection)
+	orderID := uuid.New()
+	newRequest := func(methodSleep ...string) *internalapi.ScheduleDeliveryRequest {
+		return &internalapi.ScheduleDeliveryRequest{
+			OrderID: orderID.String(),
+			Address: testAddress,
+			Error:   &internalapi.ChaosError{MethodSleep: methodSleep},
+		}
+	}
+
+	// The sleep outlasts the caller's deadline, so the method gives up without writing.
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err = client.ScheduleDelivery(ctx, newRequest("CancelDelivery", "ScheduleDelivery"), grpc.WaitForReady(true))
+	require.Equal(t, codes.DeadlineExceeded, status.Code(err))
+	var count int
+	err = testEnv.connector.TransactionalClient().GetContext(t.Context(), "test.deliveries.count", &count,
+		"SELECT COUNT(*) FROM deliveries WHERE order_id = ?", orderID)
+	require.NoError(t, err)
+	require.Zero(t, count)
+
+	// A sleep requested for another method does not delay this one.
+	ctx, cancel = context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err = client.ScheduleDelivery(ctx, newRequest("CancelDelivery"))
+	require.NoError(t, err)
+}

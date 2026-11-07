@@ -12,8 +12,10 @@ type OrderInput struct {
 	OrderID string
 	Amount  int64
 	Address string
-	// MethodError names the service method that must fail; used for chaos testing.
+	// MethodError names the service method that must fail and MethodSleep the methods
+	// that must be delayed; used for chaos testing.
 	MethodError string
+	MethodSleep []string
 }
 
 type step struct {
@@ -26,7 +28,7 @@ type step struct {
 // compensations for it and for all previous steps in reverse order.
 func CreateOrderWorkflow(ctx workflow.Context, in OrderInput) error {
 	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		StartToCloseTimeout: 10 * time.Second,
+		StartToCloseTimeout: 30 * time.Second,
 		RetryPolicy: &temporal.RetryPolicy{
 			InitialInterval:    time.Second,
 			BackoffCoefficient: 2,

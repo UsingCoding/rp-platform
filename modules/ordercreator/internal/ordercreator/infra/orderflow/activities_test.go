@@ -112,6 +112,7 @@ func TestActivitiesCallServices(t *testing.T) {
 	a := services.activities
 	in := input
 	in.MethodError = scheduleDelivery
+	in.MethodSleep = []string{chargePayment, cancelOrder}
 
 	for _, activity := range []func(context.Context, OrderInput) error{
 		a.CreateOrder, a.CancelOrder, a.ChargePayment, a.RefundPayment, a.ScheduleDelivery, a.CancelDelivery,
@@ -130,6 +131,8 @@ func TestActivitiesCallServices(t *testing.T) {
 		require.Equal(t, in.OrderID, req.GetOrderID(), method)
 	}
 	require.Equal(t, in.MethodError, order.GetError().GetMethodError())
+	require.Equal(t, in.MethodSleep, order.GetError().GetMethodSleep())
+	require.Equal(t, in.MethodSleep, services.requests[cancelDelivery].(*deliveryinternalapi.CancelDeliveryRequest).GetError().GetMethodSleep())
 	require.Equal(t, in.MethodError, services.requests[cancelOrder].(*orderinternalapi.CancelOrderRequest).GetError().GetMethodError())
 	require.Equal(t, in.MethodError, services.requests[chargePayment].(*paymentinternalapi.ChargePaymentRequest).GetError().GetMethodError())
 	require.Equal(t, in.MethodError, services.requests[scheduleDelivery].(*deliveryinternalapi.ScheduleDeliveryRequest).GetError().GetMethodError())

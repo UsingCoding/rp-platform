@@ -5,6 +5,7 @@ import (
 
 	publicapi "ordercreator/api/server/publicapi"
 	"ordercreator/internal/ordercreator/app"
+	"ordercreator/internal/ordercreator/domain"
 )
 
 func NewHandler(svc *app.Service) publicapi.StrictServerInterface {
@@ -28,12 +29,24 @@ func (h handler) Echo(ctx context.Context, req publicapi.EchoRequestObject) (pub
 	}, nil
 }
 
-func (h handler) CreateOrder(ctx context.Context, req publicapi.CreateOrderRequestObject) (publicapi.CreateOrderResponseObject, error) {
-	var methodError string
-	if req.Body.Error != nil {
-		methodError = string(req.Body.Error.MethodError)
+func chaos(e *publicapi.ChaosError) domain.Chaos {
+	var c domain.Chaos
+	if e == nil {
+		return c
 	}
-	order, workflowID, err := h.svc.CreateOrder(ctx, req.Body.Amount, req.Body.Address, methodError)
+	if e.MethodError != nil {
+		c.MethodError = string(*e.MethodError)
+	}
+	if e.MethodSleep != nil {
+		for _, method := range *e.MethodSleep {
+			c.MethodSleep = append(c.MethodSleep, string(method))
+		}
+	}
+	return c
+}
+
+func (h handler) CreateOrder(ctx context.Context, req publicapi.CreateOrderRequestObject) (publicapi.CreateOrderResponseObject, error) {
+	order, workflowID, err := h.svc.CreateOrder(ctx, req.Body.Amount, req.Body.Address, chaos(req.Body.Error))
 	if err != nil {
 		return nil, err
 	}

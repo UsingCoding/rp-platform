@@ -31,7 +31,8 @@ func (s *Starter) StartCreateOrder(ctx context.Context, order domain.Order) (str
 		OrderID:     order.ID.String(),
 		Amount:      order.Amount,
 		Address:     order.Address,
-		MethodError: order.MethodError,
+		MethodError: order.Chaos.MethodError,
+		MethodSleep: order.Chaos.MethodSleep,
 	})
 	if err != nil {
 		return "", err

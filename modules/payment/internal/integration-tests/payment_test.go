@@ -95,3 +95,36 @@ func TestChargePaymentChaosAndCompensation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "cancelled", orderStatus)
 }
+
+func TestChargePaymentChaosSleep(t *testing.T) {
+	connection, err := grpc.NewClient(testEnv.conf.GRPC.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer connection.Close()
+
+	client := internalapi.NewPaymentServiceClient(connection)
+	orderID := uuid.New()
+	newRequest := func(methodSleep ...string) *internalapi.ChargePaymentRequest {
+		return &internalapi.ChargePaymentRequest{
+			OrderID: orderID.String(),
+			Amount:  100,
+			Error:   &internalapi.ChaosError{MethodSleep: methodSleep},
+		}
+	}
+
+	// The sleep outlasts the caller's deadline, so the method gives up without writing.
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err = client.ChargePayment(ctx, newRequest("RefundPayment", "ChargePayment"), grpc.WaitForReady(true))
+	require.Equal(t, codes.DeadlineExceeded, status.Code(err))
+	var count int
+	err = testEnv.connector.TransactionalClient().GetContext(t.Context(), "test.payments.count", &count,
+		"SELECT COUNT(*) FROM payments WHERE order_id = ?", orderID)
+	require.NoError(t, err)
+	require.Zero(t, count)
+
+	// A sleep requested for another method does not delay this one.
+	ctx, cancel = context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err = client.ChargePayment(ctx, newRequest("RefundPayment"))
+	require.NoError(t, err)
+}

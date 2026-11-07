@@ -3,6 +3,8 @@ package internalapi
 import (
 	"context"
 	"log/slog"
+	"slices"
+	"time"
 	"uuid"
 
 	"github.com/distributed-programming-2026/go-sdk/pkg/logging"
@@ -40,7 +42,7 @@ func (h handler) Echo(ctx context.Context, req *orderinternalapi.EchoRequest) (*
 }
 
 func (h handler) CreateOrder(ctx context.Context, req *orderinternalapi.CreateOrderRequest) (*orderinternalapi.CreateOrderResponse, error) {
-	err := h.chaosError(ctx, "CreateOrder", req.GetError())
+	err := h.injectChaos(ctx, "CreateOrder", req.GetError())
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +65,7 @@ func (h handler) CreateOrder(ctx context.Context, req *orderinternalapi.CreateOr
 }
 
 func (h handler) CancelOrder(ctx context.Context, req *orderinternalapi.CancelOrderRequest) (*orderinternalapi.CancelOrderResponse, error) {
-	err := h.chaosError(ctx, "CancelOrder", req.GetError())
+	err := h.injectChaos(ctx, "CancelOrder", req.GetError())
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +83,22 @@ func (h handler) CancelOrder(ctx context.Context, req *orderinternalapi.CancelOr
 	return &orderinternalapi.CancelOrderResponse{}, nil
 }
 
-// chaosError fails the method named in the request, so callers can exercise retries and compensations.
-func (h handler) chaosError(ctx context.Context, method string, chaos *orderinternalapi.ChaosError) error {
-	if chaos.GetMethodError() != method {
-		return nil
+// chaosSleep is how long a method listed in ChaosError.MethodSleep is delayed.
+const chaosSleep = 15 * time.Second
+
+// injectChaos delays or fails the method as requested, so callers can exercise retries and compensations.
+func (h handler) injectChaos(ctx context.Context, method string, chaos *orderinternalapi.ChaosError) error {
+	if slices.Contains(chaos.GetMethodSleep(), method) {
+		h.logger.WarnContext(ctx, "chaos sleep injected", "method", method, "duration", chaosSleep.String())
+		select {
+		case <-time.After(chaosSleep):
+		case <-ctx.Done():
+			return status.FromContextError(ctx.Err()).Err()
+		}
 	}
-	h.logger.WarnContext(ctx, "chaos error injected", "method", method)
-	return status.Errorf(codes.Internal, "chaos: %s failed", method)
+	if chaos.GetMethodError() == method {
+		h.logger.WarnContext(ctx, "chaos error injected", "method", method)
+		return status.Errorf(codes.Internal, "chaos: %s failed", method)
+	}
+	return nil
 }

@@ -57,12 +57,12 @@ func (s *Service) Echo(ctx context.Context, body string) (uuid.UUID, error) {
 }
 
 // CreateOrder starts the order creation workflow; it completes asynchronously.
-func (s *Service) CreateOrder(ctx context.Context, amount int64, address, methodError string) (domain.Order, string, error) {
+func (s *Service) CreateOrder(ctx context.Context, amount int64, address string, chaos domain.Chaos) (domain.Order, string, error) {
 	order := domain.Order{
-		ID:          uuid.New(),
-		Amount:      amount,
-		Address:     address,
-		MethodError: methodError,
+		ID:      uuid.New(),
+		Amount:  amount,
+		Address: address,
+		Chaos:   chaos,
 	}
 	workflowID, err := s.orderStarter.StartCreateOrder(ctx, order)
 	if err != nil {
